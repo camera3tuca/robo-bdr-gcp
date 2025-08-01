@@ -4,3 +4,4 @@ yfinance
 google-cloud-secret-manager
 Flask
 gunicorn
+numpy
