@@ -4,11 +4,11 @@ import yfinance as yf
 from datetime import datetime
 import sys
 import os
+import numpy as np # Importa a biblioteca numpy
 import warnings
 from google.cloud import secretmanager
 from flask import Flask
 
-# Inicializa o servidor web Flask, que é como o Cloud Run espera receber chamadas
 app = Flask(__name__)
 
 # --- CONFIGURAÇÕES FIXAS DA ESTRATÉGIA CAMPEÃ ---
@@ -22,53 +22,50 @@ TERMINACOES_BDR = ('31', '32', '33', '34', '35', '39')
 
 # --- FUNÇÕES AUXILIARES DO ROBÔ ---
 
+# ... (as outras funções como obter_lista_bdrs, buscar_dados, etc. permanecem as mesmas) ...
 def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
-    print("ETAPA 1: Buscando lista completa de BDRs...")
-    try:
-        url = f"https://brapi.dev/api/quote/list?token={token}"
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        dados = response.json().get('stocks', [])
-        df = pd.DataFrame(dados)
-        bdrs = df[df['stock'].str.endswith(TERMINACOES_BDR, na=False)]['stock'].tolist()
-        print(f"-> Sucesso. Encontrados {len(bdrs)} BDRs para análise.")
-        return bdrs
-    except Exception as e:
-        print(f"-> ERRO CRÍTICO ao buscar lista de BDRs: {e}", file=sys.stderr)
-        return []
-
+    # ... (código da função)
 def buscar_dados_historicos_completos(tickers: list[str], periodo: str) -> pd.DataFrame:
-    print(f"\nETAPA 2: Buscando dados históricos ({periodo})...")
-    tickers_sa = [f"{ticker}.SA" for ticker in tickers]
-    try:
-        dados = yf.download(tickers_sa, period=periodo, auto_adjust=True, progress=False, ignore_tz=True)
-        if dados.empty: return pd.DataFrame()
-        dados.columns = pd.MultiIndex.from_tuples([(col[0], col[1].replace(".SA", "")) for col in dados.columns])
-        dados = dados.dropna(axis=1, how='all')
-        print("-> Sucesso. Dados históricos baixados.")
-        return dados
-    except Exception as e:
-        print(f"-> ERRO ao buscar dados históricos: {e}", file=sys.stderr)
-        return pd.DataFrame()
+    # ... (código da função)
 
+# --- FUNÇÃO CORRIGIDA ---
 def calcular_ifr(precos: pd.Series, periodo: int = 14) -> pd.Series:
     delta = precos.diff()
-    ganhos = delta.where(delta > 0, 0).ewm(com=periodo - 1, adjust=False).mean()
-    perdas = -delta.where(delta < 0, 0).ewm(com=periodo - 1, adjust=False).mean()
-    rs = ganhos / perdas
-    return 100 - (100 / (1 + rs))
+    ganhos = delta.where(delta > 0, 0)
+    perdas = -delta.where(delta < 0, 0)
+
+    media_ganhos = ganhos.ewm(com=periodo - 1, adjust=False).mean()
+    media_perdas = perdas.ewm(com=periodo - 1, adjust=False).mean()
+
+    # Lógica robusta para evitar divisão por zero
+    rs = media_ganhos / media_perdas
+    ifr = 100 - (100 / (1 + rs))
+    
+    # Se a média de perdas for 0, rs será infinito. O IFR deve ser 100.
+    # Se ganhos e perdas forem 0, rs será NaN. O IFR deve ser neutro (50).
+    ifr = ifr.replace([np.inf, -np.inf], 100).fillna(50)
+    
+    return ifr
+# --- FIM DA CORREÇÃO ---
 
 def encontrar_sinais_potenciais(df_dados: pd.DataFrame) -> list[dict]:
-    sinais_potenciais = []
-    tickers = df_dados.columns.get_level_values(1).unique()
-    print(f"\nETAPA 3: Analisando {len(tickers)} BDRs válidos...")
-    for ticker in tickers:
-        try:
-            df_ticker = df_dados.loc[:, (slice(None), ticker)].copy()
-            df_ticker.columns = df_ticker.columns.droplevel(1)
-            if df_ticker.isnull().all().all() or len(df_ticker) < MME_LONGA: continue
-            df_ticker['MME_C'] = df_ticker['Close'].ewm(span=MME_CURTA, adjust=False).mean()
-            df_ticker['MME_L'] = df_ticker['Close'].ewm(span=MME_LONGA, adjust=False).mean()
+    # ... (código da função)
+def verificar_confirmacao_intraday(sinais_potenciais: list) -> list:
+    # ... (código da função)
+def enviar_whatsapp(msg: str, phone: str, apikey: str):
+    # ... (código da função)
+
+# --- FUNÇÃO PRINCIPAL (PONTO DE ENTRADA DO CLOUD RUN) ---
+@app.route("/")
+def rodar_robo_bdr():
+    # ... (código da função principal)
+
+# --- Bloco para rodar o servidor Flask ---
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+
+# (Para manter a resposta curta, omiti o corpo das funções que não mudaram. 
+# Por favor, copie e cole o código completo abaixo)            df_ticker['MME_L'] = df_ticker['Close'].ewm(span=MME_LONGA, adjust=False).mean()
             df_ticker['IFR14'] = calcular_ifr(df_ticker['Close'], periodo=PERIODO_IFR)
             df_ticker['VolumeMedio10'] = df_ticker['Volume'].rolling(window=PERIODO_MEDIA_VOLUME).mean()
             ultimo, penultimo = df_ticker.iloc[-1], df_ticker.iloc[-2]
