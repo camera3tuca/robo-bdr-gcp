@@ -84,6 +84,81 @@ def encontrar_sinais_potenciais(df_dados: pd.DataFrame, tickers: list[str]) -> l
     print(f"-> Análise concluída. {len(sinais_potenciais)} sinal(is) potencial(is) encontrado(s).")
     return sinais_potenciais
 
+# --- FUNÇÃO MODIFICADA PARA RETORNAR AMBAS AS LISTAS ---
+def verificar_confirmacao_intraday(sinais_potenciais: list) -> tuple[list, list]:
+    if not sinais_potenciais: return [], []
+    print(f"\nETAPA 4: Verificando confirmação intraday...")
+    tickers_potenciais = [s['BDR'] for s in sinais_potenciais]
+    dados_intraday = yf.download([f"{t}.SA" for t in tickers_potenciais], period="1d", interval="15m", progress=False, ignore_tz=True)
+    if dados_intraday.empty:
+        print("-> Não foi possível obter dados intraday para confirmação.")
+        return [], sinais_potenciais
+        
+    sinais_confirmados = []
+    sinais_nao_confirmados = [] # Nova lista
+    
+    for sinal in sinais_potenciais:
+        try:
+            preco_atual = None
+            ticker_sa = f"{sinal['BDR']}.SA"
+            if len(tickers_potenciais) > 1:
+                if ticker_sa in dados_intraday['Close'].columns:
+                    preco_atual = dados_intraday['Close'][ticker_sa].dropna().iloc[-1]
+            else:
+                if 'Close' in dados_intraday:
+                    preco_atual = dados_intraday['Close'].dropna().iloc[-1]
+            
+            if preco_atual and preco_atual > sinal['MME_C_Sinal']:
+                print(f"-> ✅ SINAL CONFIRMADO para {sinal['BDR']}")
+                sinais_confirmados.append(sinal)
+            else:
+                print(f"-> ❌ SINAL NÃO CONFIRMADO para {sinal['BDR']}")
+                sinais_nao_confirmados.append(sinal)
+        except Exception: 
+            sinais_nao_confirmados.append(sinal)
+            continue
+            
+    print(f"-> Verificação concluída. {len(sinais_confirmados)} sinal(is) confirmado(s), {len(sinais_nao_confirmados)} para o radar.")
+    return sinais_confirmados, sinais_nao_confirmados
+# --- FIM DA MODIFICAÇÃO ---
+
+def enviar_whatsapp(msg: str, phone: str, apikey: str):
+    print("\nETAPA 5: Enviando notificação para o WhatsApp...")
+    try:
+        texto_codificado = requests.utils.quote(msg)
+        url_whatsapp = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={texto_codificado}&apikey={apikey}"
+        response = requests.get(url_whatsapp, timeout=20)
+        if response.status_code == 200: print("-> ✅ Notificação enviada com sucesso!")
+        else: print(f"-> ⚠️ Falha no envio: {response.status_code} - {response.text}")
+    except Exception as e: print(f"-> ⚠️ ERRO ao tentar enviar notificação: {e}")
+
+# --- FUNÇÃO PRINCIPAL (PONTO DE ENTRADA DO CLOUD RUN) ---
+@app.route("/")
+def rodar_robo_bdr():
+    warnings.simplefilter(action='ignore', category=FutureWarning)
+    print(f"Iniciando Robô BDRs v3.3 (com Radar) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    
+    try:
+        project_id = "prjrobobdrs01"
+        client = secretmanager.SecretManagerServiceClient()
+        def access_secret(secret_id):
+            name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+            response = client.access_secret            df_ticker.columns = df_ticker.columns.droplevel(1)
+            if df_ticker.isnull().all().all() or len(df_ticker) < MME_LONGA: continue
+            df_ticker['MME_C'] = df_ticker['Close'].ewm(span=MME_CURTA, adjust=False).mean()
+            df_ticker['MME_L'] = df_ticker['Close'].ewm(span=MME_LONGA, adjust=False).mean()
+            df_ticker['IFR14'] = calcular_ifr(df_ticker['Close'], periodo=PERIODO_IFR)
+            df_ticker['VolumeMedio10'] = df_ticker['Volume'].rolling(window=PERIODO_MEDIA_VOLUME).mean()
+            ultimo, penultimo = df_ticker.iloc[-1], df_ticker.iloc[-2]
+            if (penultimo['MME_C'] <= penultimo['MME_L'] and ultimo['MME_C'] > ultimo['MME_L'] and
+                ultimo['Volume'] > (ultimo['VolumeMedio10'] * 1.2) and ultimo['IFR14'] < 70.0):
+                sinal = { "BDR": ticker, "DataSinal": ultimo.name, "Preco_Entrada_Ref": ultimo['Close'], 
+                          "Stop_Loss_Sugerido": df_ticker.iloc[-PERIODO_STOP_LOSS:]['Low'].min(), "MME_C_Sinal": ultimo['MME_C']}
+                sinais_potenciais.append(sinal)
+        except (KeyError, IndexError): continue
+    print(f"-> Análise concluída. {len(sinais_potenciais)} sinal(is) potencial(is) encontrado(s).")
+    return sinais_potenciais
+
 def verificar_confirmacao_intraday(sinais_potenciais: list) -> list:
     if not sinais_potenciais: return []
     print(f"\nETAPA 4: Verificando confirmação intraday...")
