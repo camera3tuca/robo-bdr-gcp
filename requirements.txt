@@ -1,8 +1,4 @@
-pandas
-requests
-yfinance
-google-cloud-secret-manager
 Flask
 gunicorn
-numpy
-python-telegram-bot
+requests
+python-telegram-bot  # Manter por enquanto, mas não usaremos no teste principal
