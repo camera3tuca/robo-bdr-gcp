@@ -8,6 +8,7 @@ import os
 import warnings
 from google.cloud import secretmanager
 from flask import Flask
+import telegram
 
 app = Flask(__name__)
 
@@ -20,38 +21,19 @@ PERIODO_STOP_LOSS = 15
 PERIODO_HISTORICO_DIAS = "120d"
 TERMINACOES_BDR = ('31', '32', '33', '34', '35', '39')
 
-# --- FUNÇÃO DE NOTIFICAÇÃO PARA TELEGRAM (HTTP DIRETO) ---
+# --- FUNÇÃO DE NOTIFICAÇÃO ---
 def enviar_telegram(msg: str, bot_token: str, chat_id: str):
     print("\nETAPA 5: Enviando notificação para o Telegram...")
     try:
         if len(msg) > 4096:
             msg = msg[:4090] + "\n\n[...]"
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        params = {
-            "chat_id": chat_id,
-            "text": msg,
-            "parse_mode": "Markdown"
-        }
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        print(f"-> ✅ Telegram enviado com sucesso! Status: {response.status_code}")
+        bot = telegram.Bot(token=bot_token)
+        bot.send_message(chat_id=chat_id, text=msg, parse_mode='Markdown')
+        print("-> ✅ Notificação enviada com sucesso!")
     except Exception as e:
-        print(f"-> ⚠️ ERRO no Telegram: {e}")
+        print(f"-> ⚠️ ERRO ao tentar enviar notificação para o Telegram: {e}")
 
-# --- FUNÇÃO DE NOTIFICAÇÃO PARA WHATSAPP (VIA CALLMEBOT) ---
-def enviar_whatsapp(msg: str, phone: str, apikey: str):
-    print("\nETAPA 5: Enviando notificação para o WhatsApp...")
-    try:
-        # Codifica a mensagem para URL (para suportar caracteres especiais)
-        msg_encoded = requests.utils.quote(msg)
-        url = f"https://api.callmebot.com/whatsapp.php?phone={phone}&text={msg_encoded}&apikey={apikey}"
-        response = requests.get(url, timeout=15)
-        response.raise_for_status()
-        print(f"-> ✅ WhatsApp enviado com sucesso! Status: {response.status_code}")
-    except Exception as e:
-        print(f"-> ⚠️ ERRO no WhatsApp: {e}")
-
-# --- DEMAIS FUNÇÕES AUXILIARES (SEM MUDANÇAS) ---
+# --- DEMAIS FUNÇÕES AUXILIARES ---
 def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
     print("ETAPA 1: Buscando lista completa de BDRs...")
     try:
@@ -66,7 +48,6 @@ def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
     except Exception as e:
         print(f"-> ERRO CRÍTICO ao buscar lista de BDRs: {e}", file=sys.stderr)
         return []
-
 def buscar_dados_historicos_completos(tickers: list[str], periodo: str) -> pd.DataFrame:
     print(f"\nETAPA 2: Buscando dados históricos ({periodo})...")
     tickers_sa = [f"{ticker}.SA" for ticker in tickers]
@@ -80,7 +61,6 @@ def buscar_dados_historicos_completos(tickers: list[str], periodo: str) -> pd.Da
     except Exception as e:
         print(f"-> ERRO ao buscar dados históricos: {e}", file=sys.stderr)
         return pd.DataFrame()
-
 def calcular_ifr(precos: pd.Series, periodo: int = 14) -> pd.Series:
     delta = precos.diff()
     ganhos = delta.where(delta > 0, 0)
@@ -91,7 +71,6 @@ def calcular_ifr(precos: pd.Series, periodo: int = 14) -> pd.Series:
     ifr = 100 - (100 / (1 + rs))
     ifr = ifr.replace([np.inf, -np.inf], 100).fillna(50)
     return ifr
-
 def encontrar_sinais_potenciais(df_dados: pd.DataFrame, tickers: list[str]) -> list[dict]:
     sinais_potenciais = []
     print(f"\nETAPA 3: Analisando {len(tickers)} BDRs válidos...")
@@ -113,7 +92,6 @@ def encontrar_sinais_potenciais(df_dados: pd.DataFrame, tickers: list[str]) -> l
         except (KeyError, IndexError): continue
     print(f"-> Análise concluída. {len(sinais_potenciais)} sinal(is) potencial(is) encontrado(s).")
     return sinais_potenciais
-
 def verificar_confirmacao_intraday(sinais_potenciais: list) -> tuple[list, list]:
     if not sinais_potenciais: return [], []
     print(f"\nETAPA 4: Verificando confirmação intraday...")
@@ -148,7 +126,7 @@ def verificar_confirmacao_intraday(sinais_potenciais: list) -> tuple[list, list]
 @app.route("/")
 def rodar_robo_bdr():
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    print(f"Iniciando Robô BDRs v3.5 (Dual: Telegram + WhatsApp) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    print(f"Iniciando Robô BDRs (Telegram) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     try:
         project_id = "prjrobobdrs01"
         client = secretmanager.SecretManagerServiceClient()
@@ -158,8 +136,6 @@ def rodar_robo_bdr():
             return response.payload.data.decode("UTF-8")
         telegram_bot_token = access_secret("TELEGRAM_BOT_TOKEN")
         telegram_chat_id = access_secret("TELEGRAM_CHAT_ID")
-        whatsapp_phone = access_secret("WHATSAPP_PHONE")
-        whatsapp_apikey = access_secret("WHATSAPP_APIKEY")
         brapi_api_token = access_secret("BRAPI_API_TOKEN")
         print("Chaves de API carregadas com sucesso.")
     except Exception as e:
@@ -172,7 +148,6 @@ def rodar_robo_bdr():
     if dados_diarios.empty: 
         msg = f"✅ *Robô BDRs* ({datetime.now().strftime('%d/%m/%Y %H:%M')}) ✅\n\nExecução concluída. Falha ao obter dados históricos."
         enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
-        enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
         return "Finalizado: sem dados históricos.", 200
     tickers_validos = dados_diarios.columns.get_level_values(1).unique()
     sinais_potenciais = encontrar_sinais_potenciais(dados_diarios, tickers_validos)
@@ -182,23 +157,21 @@ def rodar_robo_bdr():
         sinais_confirmados, sinais_nao_confirmados = verificar_confirmacao_intraday(sinais_potenciais)
     data_hoje_msg = datetime.now().strftime('%d/%m/%Y %H:%M')
     if not sinais_confirmados and not sinais_nao_confirmados:
-        msg = f"✅ *Robô BDRs* ({data_hoje_msg}) ✅\n\nExecução concluída. Nenhum sinal de compra foi encontrado hoje."
+        msg_telegram = f"✅ *Robô BDRs* ({data_hoje_msg}) ✅\n\nExecução concluída. Nenhum sinal de compra foi encontrado hoje."
     else:
         if sinais_confirmados:
-            msg = f"🚨 *Robô BDRs* ({data_hoje_msg}) 🚨\n*Sinais de Compra ({MME_CURTA}x{MME_LONGA}) CONFIRMADOS:*\n"
+            msg_telegram = f"🚨 *Robô BDRs* ({data_hoje_msg}) 🚨\n*Sinais de Compra ({MME_CURTA}x{MME_LONGA}) CONFIRMADOS:*\n"
             for sinal in sinais_confirmados:
                 preco_entrada_str = f"R$ {sinal['Preco_Entrada_Ref']:.2f}"
                 stop_loss_str = f"R$ {sinal['Stop_Loss_Sugerido']:.2f}"
-                msg += f"\n`{sinal['BDR']}`: Entr. {preco_entrada_str} / Stop {stop_loss_str}"
+                msg_telegram += f"\n`{sinal['BDR']}`: Entr. {preco_entrada_str} / Stop {stop_loss_str}"
         else:
-            msg = f"✳️ *Robô BDRs* ({data_hoje_msg}) ✳️\n\nNenhum sinal foi confirmado hoje."
+            msg_telegram = f"✳️ *Robô BDRs* ({data_hoje_msg}) ✳️\n\nNenhum sinal foi confirmado hoje."
         if sinais_nao_confirmados:
-            msg += "\n\n⚠️ *Sinais NÃO CONFIRMADOS (Radar):*"
+            msg_telegram += "\n\n⚠️ *Sinais NÃO CONFIRMADOS (Radar):*"
             tickers_radar = [sinal_nc['BDR'] for sinal_nc in sinais_nao_confirmados]
-            msg += "\n`" + "`, `".join(tickers_radar) + "`"
-    # Envia para ambos
-    enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
-    enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
+            msg_telegram += "\n`" + "`, `".join(tickers_radar) + "`"
+    enviar_telegram(msg_telegram, telegram_bot_token, telegram_chat_id)
     print("Monitoramento finalizado.")
     return "Processo finalizado com sucesso.", 200
 
