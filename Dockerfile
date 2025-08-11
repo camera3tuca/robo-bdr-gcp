@@ -1,4 +1,4 @@
-# Imagem base: Python 3.12 slim (leve e compatível com Gunicorn/Flask)
+# Imagem base: Python 3.12 slim (leve e compatível com Gunicorn/Flask*)
 FROM python:3.12-slim
 
 # Define o diretório de trabalho no container
