@@ -1,7 +1,8 @@
-pandas==2.2.2
-requests==2.32.3
-yfinance==0.2.43
-google-cloud-secret-manager==2.25.0
-Flask==3.0.3
-gunicorn==23.0.0
-numpy==2.1.0
+pandas
+requests
+yfinance
+google-cloud-secret-manager
+Flask
+gunicorn
+numpy
+python-telegram-bot
