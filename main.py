@@ -54,10 +54,11 @@ def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
 def buscar_dados_historicos_em_lotes(tickers: list[str], periodo: str, tamanho_lote: int = 75) -> pd.DataFrame:
     print(f"\nETAPA 2: Buscando dados históricos ({periodo}) em lotes de {tamanho_lote}...")
     todos_os_dados = []
+    num_lotes = (len(tickers) // tamanho_lote) + 1
     for i in range(0, len(tickers), tamanho_lote):
         lote = tickers[i:i + tamanho_lote]
         tickers_sa = [f"{ticker}.SA" for ticker in lote]
-        print(f"  -> Buscando lote {i//tamanho_lote + 1} de {len(tickers)//tamanho_lote + 1}...")
+        print(f"  -> Buscando lote {i//tamanho_lote + 1} de {num_lotes}...")
         try:
             dados = yf.download(tickers_sa, period=periodo, auto_adjust=True, progress=False, ignore_tz=True)
             if not dados.empty:
