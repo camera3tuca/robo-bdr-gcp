@@ -1,4 +1,4 @@
-# Imagem base: Python 3.12 slim (leve e compatível com Gunicorn/Flask*)
+# Imagem base: Python 3.12 slim
 FROM python:3.12-slim
 
 # Define o diretório de trabalho no container
@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia todo o código do projeto para o container
 COPY . .
 
-# Define a variável de ambiente para a porta (padrão do Cloud Run)
-ENV PORT=8080
+# Define a variável de ambiente (opcional, para logs)
+ENV PYTHONUNBUFFERED=1
 
-# Comando para executar o app com Gunicorn, usando o módulo main e o app Flask
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "1", "--threads", "4", "main:app"]
+# Comando para executar o script diretamente (sem Gunicorn/Flask)
+CMD ["python", "main.py"]
