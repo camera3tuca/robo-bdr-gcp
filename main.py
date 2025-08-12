@@ -5,7 +5,6 @@ import numpy as np
 from datetime import datetime
 import sys
 import os
-import time # Importa a biblioteca de tempo
 import warnings
 from google.cloud import secretmanager
 from flask import Flask
@@ -21,7 +20,7 @@ PERIODO_STOP_LOSS = 15
 PERIODO_HISTORICO_DIAS = "120d"
 TERMINACOES_BDR = ('31', '32', '33', '34', '35', '39')
 
-# --- FUNÇÕES DE NOTIFICAÇÃO ---
+# --- FUNÇÕES AUXILIARES (MESMAS DO ORIGINAL) ---
 def enviar_telegram(msg: str, bot_token: str, chat_id: str):
     print("\nETAPA 5: Enviando notificação para o Telegram...")
     try:
@@ -46,7 +45,6 @@ def enviar_whatsapp(msg: str, phone: str, apikey: str):
     except Exception as e:
         print(f"-> ⚠️ ERRO no WhatsApp: {e}")
 
-# --- DEMAIS FUNÇÕES AUXILIARES ---
 def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
     print("ETAPA 1: Buscando lista completa de BDRs...")
     try:
@@ -62,34 +60,19 @@ def obter_lista_bdrs_da_brapi(token: str) -> list[str]:
         print(f"-> ERRO CRÍTICO ao buscar lista de BDRs: {e}", file=sys.stderr)
         return []
 
-# --- FUNÇÃO ATUALIZADA PARA BUSCAR DADOS EM LOTES ---
-def buscar_dados_historicos_em_lotes(tickers: list[str], periodo: str, tamanho_lote: int = 75) -> pd.DataFrame:
-    print(f"\nETAPA 2: Buscando dados históricos ({periodo}) em lotes de {tamanho_lote}...")
-    todos_os_dados = []
-    num_lotes = (len(tickers) // tamanho_lote) + 1
-    for i in range(0, len(tickers), tamanho_lote):
-        lote = tickers[i:i + tamanho_lote]
-        tickers_sa = [f"{ticker}.SA" for ticker in lote]
-        print(f"  -> Buscando lote {i//tamanho_lote + 1} de {num_lotes}...")
-        try:
-            dados = yf.download(tickers_sa, period=periodo, auto_adjust=True, progress=False, ignore_tz=True)
-            if not dados.empty:
-                todos_os_dados.append(dados)
-            time.sleep(1) # Pausa de 1 segundo entre os lotes
-        except Exception as e:
-            print(f"  -> ERRO ao buscar lote: {e}")
-            continue
-    
-    if not todos_os_dados:
-        print("-> ERRO: Nenhum dado histórico pôde ser baixado.")
+def buscar_dados_historicos_completos(tickers: list[str], periodo: str) -> pd.DataFrame:
+    print(f"\nETAPA 2: Buscando dados históricos ({periodo})...")
+    tickers_sa = [f"{ticker}.SA" for ticker in tickers]
+    try:
+        dados = yf.download(tickers_sa, period=periodo, auto_adjust=True, progress=False, ignore_tz=True)
+        if dados.empty: return pd.DataFrame()
+        dados.columns = pd.MultiIndex.from_tuples([(col[0], col[1].replace(".SA", "")) for col in dados.columns])
+        dados = dados.dropna(axis=1, how='all')
+        print("-> Sucesso. Dados históricos baixados.")
+        return dados
+    except Exception as e:
+        print(f"-> ERRO ao buscar dados históricos: {e}", file=sys.stderr)
         return pd.DataFrame()
-
-    df_completo = pd.concat(todos_os_dados, axis=1)
-    df_completo.columns = pd.MultiIndex.from_tuples([(col[0], col[1].replace(".SA", "")) for col in df_completo.columns])
-    df_completo = df_completo.dropna(axis=1, how='all')
-    print("-> Sucesso. Todos os dados históricos foram baixados e combinados.")
-    return df_completo
-# --- FIM DA FUNÇÃO ATUALIZADA ---
 
 def calcular_ifr(precos: pd.Series, periodo: int = 14) -> pd.Series:
     delta = precos.diff()
@@ -117,8 +100,8 @@ def encontrar_sinais_potenciais(df_dados: pd.DataFrame, tickers: list[str]) -> l
             ultimo, penultimo = df_ticker.iloc[-1], df_ticker.iloc[-2]
             if (penultimo['MME_C'] <= penultimo['MME_L'] and ultimo['MME_C'] > ultimo['MME_L'] and
                 ultimo['Volume'] > (ultimo['VolumeMedio10'] * 1.2) and ultimo['IFR14'] < 70.0):
-                sinal = { "BDR": ticker, "DataSinal": ultimo.name, "Preco_Entrada_Ref": ultimo['Close'], 
-                          "Stop_Loss_Sugerido": df_ticker.iloc[-PERIODO_STOP_LOSS:]['Low'].min(), "MME_C_Sinal": ultimo['MME_C']}
+                sinal = {"BDR": ticker, "DataSinal": ultimo.name, "Preco_Entrada_Ref": ultimo['Close'],
+                         "Stop_Loss_Sugerido": df_ticker.iloc[-PERIODO_STOP_LOSS:]['Low'].min(), "MME_C_Sinal": ultimo['MME_C']}
                 sinais_potenciais.append(sinal)
         except (KeyError, IndexError): continue
     print(f"-> Análise concluída. {len(sinais_potenciais)} sinal(is) potencial(is) encontrado(s).")
@@ -149,16 +132,17 @@ def verificar_confirmacao_intraday(sinais_potenciais: list) -> tuple[list, list]
             else:
                 print(f"-> ❌ SINAL NÃO CONFIRMADO para {sinal['BDR']}")
                 sinais_nao_confirmados.append(sinal)
-        except Exception: 
+        except Exception:
             sinais_nao_confirmados.append(sinal)
             continue
     print(f"-> Verificação concluída. {len(sinais_confirmados)} sinal(is) confirmado(s), {len(sinais_nao_confirmados)} para o radar.")
     return sinais_confirmados, sinais_nao_confirmados
 
+# --- ROTA HTTP (NECESSÁRIA PARA CLOUD RUN) ---
 @app.route("/")
 def rodar_robo_bdr():
     warnings.simplefilter(action='ignore', category=FutureWarning)
-    print(f"Iniciando Robô BDRs v3.5 (Dual com Lotes) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    print(f"Iniciando Robô BDRs v3.5 (Dual: Telegram + WhatsApp) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     try:
         project_id = "prjrobobdrs01"
         client = secretmanager.SecretManagerServiceClient()
@@ -176,27 +160,21 @@ def rodar_robo_bdr():
         error_message = f"ERRO CRÍTICO ao carregar chaves: {e}"
         print(error_message, file=sys.stderr)
         return error_message, 500
-        
     lista_de_bdrs = obter_lista_bdrs_da_brapi(brapi_api_token)
-    if not lista_de_bdrs: return "Finalizado: sem lista de BDRs.", 200
-    
-    # Chama a nova função de busca em lotes
-    dados_diarios = buscar_dados_historicos_em_lotes(lista_de_bdrs, periodo=PERIODO_HISTORICO_DIAS)
-    
-    if dados_diarios.empty: 
+    if not lista_de_bdrs:
+        return "Finalizado: sem lista de BDRs.", 200
+    dados_diarios = buscar_dados_historicos_completos(lista_de_bdrs, periodo=PERIODO_HISTORICO_DIAS)
+    if dados_diarios.empty:
         msg = f"✅ *Robô BDRs* ({datetime.now().strftime('%d/%m/%Y %H:%M')}) ✅\n\nExecução concluída. Falha ao obter dados históricos."
         enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
         enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
         return "Finalizado: sem dados históricos.", 200
-        
     tickers_validos = dados_diarios.columns.get_level_values(1).unique()
     sinais_potenciais = encontrar_sinais_potenciais(dados_diarios, tickers_validos)
-    
     if not sinais_potenciais:
         sinais_confirmados, sinais_nao_confirmados = [], []
     else:
         sinais_confirmados, sinais_nao_confirmados = verificar_confirmacao_intraday(sinais_potenciais)
-        
     data_hoje_msg = datetime.now().strftime('%d/%m/%Y %H:%M')
     if not sinais_confirmados and not sinais_nao_confirmados:
         msg = f"✅ *Robô BDRs* ({data_hoje_msg}) ✅\n\nExecução concluída. Nenhum sinal de compra foi encontrado hoje."
@@ -213,11 +191,12 @@ def rodar_robo_bdr():
             msg += "\n\n⚠️ *Sinais NÃO CONFIRMADOS (Radar):*"
             tickers_radar = [sinal_nc['BDR'] for sinal_nc in sinais_nao_confirmados]
             msg += "\n`" + "`, `".join(tickers_radar) + "`"
-            
     enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
     enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
     print("Monitoramento finalizado.")
     return "Processo finalizado com sucesso.", 200
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    # Para rodar localmente, descomente e ajuste
+    # app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    pass  # Não roda como servidor local aqui
