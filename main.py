@@ -4,12 +4,7 @@ import yfinance as yf
 import numpy as np
 from datetime import datetime
 import sys
-import os
-import warnings
 from google.cloud import secretmanager
-from flask import Flask
-
-app = Flask(__name__)
 
 # --- CONFIGURAÇÕES DA ESTRATÉGIA ---
 MME_CURTA = 12
@@ -20,7 +15,7 @@ PERIODO_STOP_LOSS = 15
 PERIODO_HISTORICO_DIAS = "120d"
 TERMINACOES_BDR = ('31', '32', '33', '34', '35', '39')
 
-# --- FUNÇÕES AUXILIARES (MESMAS DO ORIGINAL) ---
+# --- FUNÇÕES AUXILIARES ---
 def enviar_telegram(msg: str, bot_token: str, chat_id: str):
     print("\nETAPA 5: Enviando notificação para o Telegram...")
     try:
@@ -138,10 +133,8 @@ def verificar_confirmacao_intraday(sinais_potenciais: list) -> tuple[list, list]
     print(f"-> Verificação concluída. {len(sinais_confirmados)} sinal(is) confirmado(s), {len(sinais_nao_confirmados)} para o radar.")
     return sinais_confirmados, sinais_nao_confirmados
 
-# --- ROTA HTTP (NECESSÁRIA PARA CLOUD RUN) ---
-@app.route("/")
-def rodar_robo_bdr():
-    warnings.simplefilter(action='ignore', category=FutureWarning)
+# --- EXECUÇÃO DO SCRIPT ---
+if __name__ == "__main__":
     print(f"Iniciando Robô BDRs v3.5 (Dual: Telegram + WhatsApp) em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     try:
         project_id = "prjrobobdrs01"
@@ -159,16 +152,19 @@ def rodar_robo_bdr():
     except Exception as e:
         error_message = f"ERRO CRÍTICO ao carregar chaves: {e}"
         print(error_message, file=sys.stderr)
-        return error_message, 500
+        sys.exit(1)
+
     lista_de_bdrs = obter_lista_bdrs_da_brapi(brapi_api_token)
     if not lista_de_bdrs:
-        return "Finalizado: sem lista de BDRs.", 200
+        print("Finalizado: sem lista de BDRs.")
+        sys.exit(0)
     dados_diarios = buscar_dados_historicos_completos(lista_de_bdrs, periodo=PERIODO_HISTORICO_DIAS)
     if dados_diarios.empty:
         msg = f"✅ *Robô BDRs* ({datetime.now().strftime('%d/%m/%Y %H:%M')}) ✅\n\nExecução concluída. Falha ao obter dados históricos."
         enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
         enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
-        return "Finalizado: sem dados históricos.", 200
+        print("Finalizado: sem dados históricos.")
+        sys.exit(0)
     tickers_validos = dados_diarios.columns.get_level_values(1).unique()
     sinais_potenciais = encontrar_sinais_potenciais(dados_diarios, tickers_validos)
     if not sinais_potenciais:
@@ -194,9 +190,4 @@ def rodar_robo_bdr():
     enviar_telegram(msg, telegram_bot_token, telegram_chat_id)
     enviar_whatsapp(msg, whatsapp_phone, whatsapp_apikey)
     print("Monitoramento finalizado.")
-    return "Processo finalizado com sucesso.", 200
-
-if __name__ == "__main__":
-    # Para rodar localmente, descomente e ajuste
-    # app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-    pass  # Não roda como servidor local aqui
+    sys.exit(0)
