@@ -1,5 +1,5 @@
 pandas==2.2.2
 requests==2.32.3
-yfinance==0.2.43
+yfinance==2.2.43
 google-cloud-secret-manager==2.25.0
 numpy==2.1.0
