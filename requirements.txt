@@ -5,3 +5,4 @@ numpy
 pytz
 lxml
 nltk
+streamlit
