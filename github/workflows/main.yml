@@ -1,0 +1,44 @@
+name: BDR Gap Tracker
+
+on:
+  schedule:
+    # Executa a cada 30 min, entre 10h e 18h Brasil (13h-21h UTC), Seg-Sex
+    - cron: '*/30 13-21 * * 1-5'
+  workflow_dispatch: # Permite apertar o botão "Play" manualmente
+
+jobs:
+  run-tracker:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # Permissão para salvar o ficheiro .json
+
+    steps:
+      - name: 1. Baixar código
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 3. Instalar bibliotecas
+        run: |
+          pip install -r requirements.txt
+          python -m nltk.downloader vader_lexicon
+
+      - name: 4. Executar Robô
+        env: # Injeta as chaves que guardaste nos Secrets
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          WHATSAPP_APIKEY: ${{ secrets.WHATSAPP_APIKEY }}
+          BRAPI_API_TOKEN: ${{ secrets.BRAPI_API_TOKEN }}
+        run: python tracker.py
+
+      - name: 5. Salvar memória (.json)
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git pull
+          git add top_gaps_data_*.json
+          git commit -m "Dados atualizados pelo Robô" || echo "Nada novo para salvar"
+          git push
