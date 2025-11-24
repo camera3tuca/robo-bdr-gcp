@@ -6,3 +6,4 @@ pytz
 lxml
 nltk
 streamlit
+matplotlib
