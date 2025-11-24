@@ -1,0 +1,7 @@
+requests
+pandas
+yfinance
+numpy
+pytz
+lxml
+nltk
