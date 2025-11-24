@@ -1,0 +1,142 @@
+[
+  {
+    "Ticker": "A2FY34",
+    "FechAnterior": 39.5,
+    "Abertura": 35.65999984741211,
+    "Nome": "Afya",
+    "GapPercent": -9.72151937364023
+  },
+  {
+    "Ticker": "COLG34",
+    "FechAnterior": 62.22999954223633,
+    "Abertura": 60.15999984741211,
+    "Nome": "Colgate-Palmolive",
+    "GapPercent": -3.326369452114941
+  },
+  {
+    "Ticker": "N1EM34",
+    "FechAnterior": 450.0799865722656,
+    "Abertura": 435.3999938964844,
+    "Nome": "Newmont",
+    "GapPercent": -3.261640844682212
+  },
+  {
+    "Ticker": "RGTI34",
+    "FechAnterior": 128.14999389648438,
+    "Abertura": 125.01000213623047,
+    "Nome": "Rigetti",
+    "GapPercent": -2.450247295985275
+  },
+  {
+    "Ticker": "A2XO34",
+    "FechAnterior": 158.3300018310547,
+    "Abertura": 154.5,
+    "Nome": "Axon",
+    "GapPercent": -2.4189994232056367
+  },
+  {
+    "Ticker": "CHDC34",
+    "FechAnterior": 457.75,
+    "Abertura": 446.739990234375,
+    "Nome": "Church",
+    "GapPercent": -2.4052451699890787
+  },
+  {
+    "Ticker": "C1PR34",
+    "FechAnterior": 108.01000213623047,
+    "Abertura": 105.5,
+    "Nome": "Copart",
+    "GapPercent": -2.323860833800062
+  },
+  {
+    "Ticker": "ORLY34",
+    "FechAnterior": 1.75,
+    "Abertura": 1.7100000381469727,
+    "Nome": "O'Reilly",
+    "GapPercent": -2.285712105887272
+  },
+  {
+    "Ticker": "GSGI34",
+    "FechAnterior": 139.1300048828125,
+    "Abertura": 136.0,
+    "Nome": "Goldman",
+    "GapPercent": -2.2496979608739753
+  },
+  {
+    "Ticker": "L2AZ34",
+    "FechAnterior": 2.3499999046325684,
+    "Abertura": 2.299999952316284,
+    "Nome": "Luminar",
+    "GapPercent": -2.1276576317181495
+  },
+  {
+    "Ticker": "B2HI34",
+    "FechAnterior": 1.4500000476837158,
+    "Abertura": 1.4199999570846558,
+    "Nome": "BILL",
+    "GapPercent": -2.068971697413624
+  },
+  {
+    "Ticker": "S2ED34",
+    "FechAnterior": 5.329999923706055,
+    "Abertura": 5.21999979019165,
+    "Nome": "SolarEdge",
+    "GapPercent": -2.0637924031698507
+  },
+  {
+    "Ticker": "FDMO34",
+    "FechAnterior": 69.08000183105469,
+    "Abertura": 67.69000244140625,
+    "Nome": "Ford",
+    "GapPercent": -2.0121588778296284
+  },
+  {
+    "Ticker": "U2PS34",
+    "FechAnterior": 9.979999542236328,
+    "Abertura": 9.779999732971191,
+    "Nome": "Upstart",
+    "GapPercent": -2.0040061967810496
+  },
+  {
+    "Ticker": "W1BD34",
+    "FechAnterior": 125.87999725341797,
+    "Abertura": 123.36000061035156,
+    "Nome": "Warner",
+    "GapPercent": -2.001903954599893
+  },
+  {
+    "Ticker": "M1SI34",
+    "FechAnterior": 498.0,
+    "Abertura": 488.04998779296875,
+    "Nome": "Motorola",
+    "GapPercent": -1.9979944190825827
+  },
+  {
+    "Ticker": "V1RT34",
+    "FechAnterior": 86.24761199951172,
+    "Abertura": 84.54000091552734,
+    "Nome": "Vertiv",
+    "GapPercent": -1.9798937551964269
+  },
+  {
+    "Ticker": "USBC34",
+    "FechAnterior": 64.95999908447266,
+    "Abertura": 64.0199966430664,
+    "Nome": "U.S.",
+    "GapPercent": -1.4470481136920732
+  },
+  {
+    "Ticker": "P1GR34",
+    "FechAnterior": 617.6300048828125,
+    "Abertura": 608.8699951171875,
+    "Nome": "Progressive",
+    "GapPercent": -1.418326457000274
+  },
+  {
+    "Ticker": "CLXC34",
+    "FechAnterior": 142.6999969482422,
+    "Abertura": 140.6999969482422,
+    "Nome": "Clorox",
+    "GapPercent": -1.4015417258385843
+  }
+]
