@@ -1,0 +1,44 @@
+[
+  {
+    "Ticker": "T2DH34",
+    "FechAnterior": 1.2999999523162842,
+    "Abertura": 1.2699999809265137,
+    "Nome": "Teladoc",
+    "GapPercent": -2.307690191550993
+  },
+  {
+    "Ticker": "S2TA34",
+    "FechAnterior": 41.91999816894531,
+    "Abertura": 41.0,
+    "Nome": "STAG",
+    "GapPercent": -2.194652216437487
+  },
+  {
+    "Ticker": "S1BS34",
+    "FechAnterior": 32.25,
+    "Abertura": 31.600000381469727,
+    "Nome": "Sibanye",
+    "GapPercent": -2.0155026931171216
+  },
+  {
+    "Ticker": "GMCO34",
+    "FechAnterior": 96.20999908447266,
+    "Abertura": 94.27999877929688,
+    "Nome": "General",
+    "GapPercent": -2.0060288156548367
+  },
+  {
+    "Ticker": "COPH34",
+    "FechAnterior": 39.63999938964844,
+    "Abertura": 39.29999923706055,
+    "Nome": "ConocoPhillips",
+    "GapPercent": -0.8577198734182612
+  },
+  {
+    "Ticker": "I1BN34",
+    "FechAnterior": 165.0,
+    "Abertura": 164.8000030517578,
+    "Nome": "ICICI",
+    "GapPercent": -0.12121027166193121
+  }
+]
